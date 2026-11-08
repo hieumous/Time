@@ -1,0 +1,22 @@
+name: Kiểm tra app
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Cài thư viện
+        run: pip install -r requirements.txt
+      - name: Kiểm tra lịch tuần và file Excel
+        run: |
+          python -c "from datetime import date; from utils.calendar import monday_of, week_dates, weekday_full; sunday=date(2026,11,8); monday=monday_of(sunday); days=week_dates(monday); assert days[0]==date(2026,11,2) and days[-1]==sunday; assert weekday_full(sunday)=='Chủ Nhật'"
+          python -c "from utils.export import build_excel_bytes; data=build_excel_bytes([]); assert data[:2]==b'PK'"

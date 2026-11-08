@@ -1,0 +1,82 @@
+[browser]
+gatherUsageStats = false
+
+[theme]
+showWidgetBorder = true
+showSidebarBorder = true
+baseRadius = "0.65rem"
+buttonRadius = "0.65rem"
+baseFontSize = 15
+baseFontWeight = 400
+headingFontSizes = ["2rem", "1.5rem", "1.25rem", "1.1rem", "1rem", "0.9rem"]
+headingFontWeights = [650, 650, 600, 600, 600, 600]
+linkUnderline = true
+font = "'Be Vietnam Pro':https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap"
+headingFont = "'Be Vietnam Pro':https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700&display=swap"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+codeFontSize = "0.875rem"
+paddingTop = "1.25rem"
+paddingBottom = "2.5rem"
+
+[theme.light]
+primaryColor = "#0F766E"
+backgroundColor = "#F8FAF9"
+secondaryBackgroundColor = "#FFFFFF"
+codeBackgroundColor = "#EEF2F1"
+textColor = "#134E4A"
+linkColor = "#0F766E"
+borderColor = "#D5E5E2"
+codeTextColor = "#134E4A"
+grayColor = "#5B726E"
+blueColor = "#2563EB"
+greenColor = "#059669"
+redColor = "#DC2626"
+yellowColor = "#CA8A04"
+orangeColor = "#EA580C"
+violetColor = "#7C3AED"
+chartCategoricalColors = ["#0F766E", "#EA580C", "#2563EB", "#7C3AED", "#CA8A04", "#DC2626", "#5B726E"]
+dataframeBorderColor = "#D5E5E2"
+dataframeHeaderBackgroundColor = "#EEF6F4"
+
+[theme.dark]
+primaryColor = "#2DD4BF"
+backgroundColor = "#042F2E"
+secondaryBackgroundColor = "#0B3D3A"
+codeBackgroundColor = "#115E59"
+textColor = "#CCFBF1"
+linkColor = "#5EEAD4"
+borderColor = "#115E59"
+codeTextColor = "#CCFBF1"
+grayColor = "#99B2AD"
+blueColor = "#60A5FA"
+greenColor = "#34D399"
+redColor = "#F87171"
+yellowColor = "#FACC15"
+orangeColor = "#FB923C"
+violetColor = "#A78BFA"
+chartCategoricalColors = ["#2DD4BF", "#FB923C", "#60A5FA", "#A78BFA", "#FACC15", "#F87171", "#99B2AD"]
+dataframeBorderColor = "#115E59"
+dataframeHeaderBackgroundColor = "#0B3D3A"
+dataframeHeaderTextColor = "#CCFBF1"
+
+[theme.light.sidebar]
+backgroundColor = "#EEF6F4"
+secondaryBackgroundColor = "#FFFFFF"
+codeBackgroundColor = "#D5E5E2"
+textColor = "#134E4A"
+borderColor = "#D5E5E2"
+primaryColor = "#0F766E"
+linkColor = "#0F766E"
+dataframeHeaderBackgroundColor = "#FFFFFF"
+dataframeBorderColor = "#D5E5E2"
+
+[theme.dark.sidebar]
+backgroundColor = "#022C2A"
+secondaryBackgroundColor = "#0B3D3A"
+codeBackgroundColor = "#115E59"
+textColor = "#CCFBF1"
+borderColor = "#115E59"
+primaryColor = "#2DD4BF"
+linkColor = "#5EEAD4"
+dataframeHeaderBackgroundColor = "#0B3D3A"
+dataframeBorderColor = "#115E59"
