@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quản lý thời gian</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #134e4a;
+      --muted: #5b726e;
+      --line: #d5e5e2;
+      --paper: #f8faf9;
+      --card: #ffffff;
+      --primary: #0f766e;
+      --primary-soft: #eef6f4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Be Vietnam Pro", sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+    header, main { width: min(1100px, calc(100% - 32px)); margin: 0 auto; }
+    header { padding: 28px 0 8px; }
+    h1 { margin: 0 0 6px; font-size: 2rem; }
+    h2 { margin: 0 0 8px; font-size: 1.35rem; }
+    h3 { margin: 0 0 4px; font-size: 1.05rem; }
+    p, .muted { color: var(--muted); }
+    .nav, .toolbar, .filters, .task-row, .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .nav { margin: 16px 0; }
+    button, .tab {
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font: inherit;
+      cursor: pointer;
+    }
+    button.primary, .tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+    button.ghost { background: transparent; }
+    button:disabled { opacity: 0.45; cursor: default; }
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font: inherit;
+      color: var(--ink);
+      background: white;
+    }
+    textarea { min-height: 72px; resize: vertical; }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+    .metric, .card, .day-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+    .metric strong { display: block; font-size: 1.6rem; }
+    .tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; }
+    .sessions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .session { display: flex; flex-direction: column; gap: 8px; }
+    .badge { display: inline-block; border-radius: 999px; padding: 2px 8px; background: var(--primary-soft); color: var(--primary); font-size: 0.85rem; }
+    .task { border-top: 1px solid var(--line); padding-top: 8px; }
+    .task.done span { text-decoration: line-through; color: var(--muted); }
+    .task-row { justify-content: space-between; }
+    .task-row label { display: flex; gap: 8px; align-items: flex-start; flex: 1; }
+    .grow { flex: 1; min-width: 180px; }
+    .hidden { display: none; }
+    .bars { display: grid; gap: 8px; }
+    .bar-row { display: grid; grid-template-columns: 42px 1fr; gap: 8px; align-items: center; }
+    .bar { display: flex; height: 14px; background: #eef2f1; border-radius: 999px; overflow: hidden; }
+    .bar i { display: block; height: 100%; }
+    .todo { background: #ea580c; }
+    .done { background: #059669; }
+    @media (max-width: 800px) {
+      .metrics, .sessions { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Quản lý thời gian</h1>
+    <p>Thứ Hai đến Chủ Nhật, mỗi ngày có buổi sáng, chiều và tối. Ghi chú được lưu trên trình duyệt này.</p>
+    <div class="nav">
+      <button type="button" id="view-week" class="primary">Lịch tuần</button>
+      <button type="button" id="view-tasks">Tất cả việc</button>
+      <button type="button" id="view-overview">Tổng quan</button>
+      <button type="button" id="export">Xuất Excel</button>
+    </div>
+  </header>
+  <main>
+    <section id="week-view">
+      <div class="toolbar">
+        <button type="button" id="prev-week">Tuần trước</button>
+        <button type="button" id="this-week">Tuần này</button>
+        <button type="button" id="next-week">Tuần sau</button>
+        <label class="grow">Nhảy tới ngày <input id="jump-date" type="date"></label>
+      </div>
+      <h2 id="week-title"></h2>
+      <div class="metrics" id="week-metrics"></div>
+      <div class="tabs" id="day-tabs"></div>
+      <div id="day-panel"></div>
+    </section>
+    <section id="tasks-view" class="hidden">
+      <div class="filters">
+        <select id="scope">
+          <option value="week">Tuần đang xem</option>
+          <option value="all">Mọi tuần</option>
+        </select>
+        <select id="status">
+          <option value="all">Tất cả</option>
+          <option value="todo">Cần làm</option>
+          <option value="done">Đã xong</option>
+        </select>
+        <select id="session-filter">
+          <option value="all">Mọi buổi</option>
+          <option value="morning">Buổi sáng</option>
+          <option value="afternoon">Buổi chiều</option>
+          <option value="evening">Buổi tối</option>
+        </select>
+        <input id="query" class="grow" type="search" placeholder="Tìm việc hoặc ghi chú">
+      </div>
+      <div id="task-list"></div>
+    </section>
+    <section id="overview-view" class="hidden">
+      <div class="metrics" id="overview-metrics"></div>
+      <div class="card"><h3>Việc theo ngày</h3><div class="bars" id="bars"></div></div>
+      <div class="sessions" style="margin-top:12px">
+        <div class="card" id="todo-list"></div>
+        <div class="card" id="done-list"></div>
+      </div>
+    </section>
+  </main>
+  <script>
+    const SESSIONS = [
+      { id: "morning", label: "Buổi sáng", hours: "05:00 – 12:00" },
+      { id: "afternoon", label: "Buổi chiều", hours: "12:00 – 18:00" },
+      { id: "evening", label: "Buổi tối", hours: "18:00 – 23:00" },
+    ];
+    const WEEKDAYS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"];
+    const SHORT = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+    const KEY = "time-planner-v1";
+
+    const state = load();
+    let monday = mondayOf(todayVN());
+    let selected = todayVN();
+    let view = "week";
+
+    function load() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(KEY) || "");
+        return { tasks: saved.tasks || [], notes: saved.notes || {} };
+      } catch {
+        return { tasks: [], notes: {} };
+      }
+    }
+    function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+    function uid() { return crypto.randomUUID(); }
+    function todayVN() {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    }
+    function parseISO(value) {
+      const [year, month, day] = value.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    }
+    function iso(date) {
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${date.getFullYear()}-${month}-${day}`;
+    }
+    function mondayOf(value) {
+      const date = parseISO(value);
+      const weekday = date.getDay();
+      const diff = weekday === 0 ? -6 : 1 - weekday;
+      date.setDate(date.getDate() + diff);
+      return iso(date);
+    }
+    function addDays(value, count) {
+      const date = parseISO(value);
+      date.setDate(date.getDate() + count);
+      return iso(date);
+    }
+    function formatDate(value) {
+      const [year, month, day] = value.split("-");
+      return `${day}/${month}/${year}`;
+    }
+    function formatShort(value) { return formatDate(value).slice(0, 5); }
+    function weekdayIndex(value) { return (parseISO(value).getDay() + 6) % 7; }
+    function sessionName(id) { return SESSIONS.find((item) => item.id === id); }
+    function weekDays() { return Array.from({ length: 7 }, (_, index) => addDays(monday, index)); }
+    function tasksFor(day, session) {
+      return state.tasks.filter((task) => task.date === day && (!session || task.session === session));
+    }
+
+    function setView(next) {
+      view = next;
+      document.getElementById("week-view").classList.toggle("hidden", view !== "week");
+      document.getElementById("tasks-view").classList.toggle("hidden", view !== "tasks");
+      document.getElementById("overview-view").classList.toggle("hidden", view !== "overview");
+      for (const name of ["week", "tasks", "overview"]) {
+        document.getElementById(`view-${name}`).classList.toggle("primary", view === name);
+      }
+      render();
+    }
+
+    function render() {
+      if (view === "week") renderWeek();
+      if (view === "tasks") renderTasks();
+      if (view === "overview") renderOverview();
+    }
+
+    function renderWeek() {
+      const days = weekDays();
+      if (!days.includes(selected)) selected = days[0];
+      const weekTasks = state.tasks.filter((task) => days.includes(task.date));
+      const done = weekTasks.filter((task) => task.done).length;
+      document.getElementById("week-title").textContent = `Tuần ${formatShort(days[0])} – ${formatDate(days[6])}`;
+      document.getElementById("jump-date").value = selected;
+      document.getElementById("this-week").disabled = monday === mondayOf(todayVN());
+      document.getElementById("week-metrics").innerHTML = [
+        ["Cần làm", weekTasks.length - done],
+        ["Đã xong", done],
+        ["Tổng việc tuần", weekTasks.length],
+      ].map(([label, value]) => `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`).join("");
+      document.getElementById("day-tabs").innerHTML = days.map((day) => {
+        const label = `${SHORT[weekdayIndex(day)]} ${formatShort(day)}${day === todayVN() ? " · hôm nay" : ""}`;
+        return `<button type="button" class="tab${day === selected ? " active" : ""}" data-day="${day}">${label}</button>`;
+      }).join("");
+      const panel = document.getElementById("day-panel");
+      panel.innerHTML = `<h2>${WEEKDAYS[weekdayIndex(selected)]}, ${formatDate(selected)}</h2><div class="sessions"></div>`;
+      const grid = panel.querySelector(".sessions");
+      for (const session of SESSIONS) {
+        const card = document.createElement("article");
+        card.className = "card session";
+        const tasks = tasksFor(selected, session.id);
+        const finished = tasks.filter((task) => task.done).length;
+        card.innerHTML = `<h3>${session.label}</h3><p class="muted">${session.hours}</p><span class="badge">${tasks.length ? `${finished}/${tasks.length} xong` : "Chưa có việc"}</span>`;
+        const note = document.createElement("textarea");
+        note.placeholder = "Ghi chú buổi";
+        note.value = state.notes[`${selected}:${session.id}`] || "";
+        note.addEventListener("change", () => {
+          const key = `${selected}:${session.id}`;
+          if (note.value.trim()) state.notes[key] = note.value.trim();
+          else delete state.notes[key];
+          save();
+        });
+        card.append(note);
+        for (const task of tasks) card.append(taskNode(task));
+        const form = document.createElement("form");
+        form.innerHTML = `<input name="text" placeholder="Thêm việc" maxlength="200" required><textarea name="note" placeholder="Ghi chú việc, không bắt buộc"></textarea><button class="primary" type="submit">Thêm việc</button>`;
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const data = new FormData(form);
+          state.tasks.push({
+            id: uid(),
+            date: selected,
+            session: session.id,
+            text: String(data.get("text")).trim(),
+            note: String(data.get("note")).trim(),
+            done: false,
+            created_at: new Date().toISOString(),
+            done_at: null,
+          });
+          save();
+          render();
+        });
+        card.append(form);
+        grid.append(card);
+      }
+    }
+
+    function taskNode(task) {
+      const box = document.createElement("div");
+      box.className = `task${task.done ? " done" : ""}`;
+      const row = document.createElement("div");
+      row.className = "task-row";
+      const label = document.createElement("label");
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.checked = task.done;
+      check.addEventListener("change", () => {
+        task.done = check.checked;
+        task.done_at = task.done ? new Date().toISOString() : null;
+        save();
+        render();
+      });
+      const text = document.createElement("span");
+      text.textContent = task.text;
+      label.append(check, text);
+      const actions = document.createElement("div");
+      actions.className = "actions";
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "ghost";
+      edit.textContent = "Sửa";
+      edit.addEventListener("click", () => editTask(task));
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "ghost";
+      remove.textContent = "Xóa";
+      remove.addEventListener("click", () => {
+        if (!confirm(`Xóa "${task.text}"?`)) return;
+        state.tasks = state.tasks.filter((item) => item.id !== task.id);
+        save();
+        render();
+      });
+      actions.append(edit, remove);
+      row.append(label, actions);
+      const note = document.createElement("textarea");
+      note.placeholder = "Ghi chú việc";
+      note.value = task.note || "";
+      note.addEventListener("change", () => {
+        task.note = note.value.trim();
+        save();
+      });
+      box.append(row, note);
+      return box;
+    }
+
+    function editTask(task) {
+      const text = prompt("Sửa việc", task.text);
+      if (text === null) return;
+      const cleaned = text.trim();
+      if (!cleaned) return;
+      task.text = cleaned;
+      const session = prompt("Buổi: morning, afternoon hoặc evening", task.session);
+      if (session && SESSIONS.some((item) => item.id === session)) task.session = session;
+      save();
+      render();
+    }
+
+    function renderTasks() {
+      const scope = document.getElementById("scope").value;
+      const status = document.getElementById("status").value;
+      const session = document.getElementById("session-filter").value;
+      const query = document.getElementById("query").value.trim().toLowerCase();
+      const days = new Set(weekDays());
+      const list = document.getElementById("task-list");
+      list.innerHTML = "";
+      const grouped = new Map();
+      for (const task of state.tasks) {
+        if (scope === "week" && !days.has(task.date)) continue;
+        if (status === "todo" && task.done) continue;
+        if (status === "done" && !task.done) continue;
+        if (session !== "all" && task.session !== session) continue;
+        if (query && !`${task.text} ${task.note}`.toLowerCase().includes(query)) continue;
+        if (!grouped.has(task.date)) grouped.set(task.date, []);
+        grouped.get(task.date).push(task);
+      }
+      for (const [key, note] of Object.entries(state.notes)) {
+        const [day, sessionId] = key.split(":");
+        if (!note.trim()) continue;
+        if (scope === "week" && !days.has(day)) continue;
+        if (session !== "all" && sessionId !== session) continue;
+        if (query && !note.toLowerCase().includes(query) && !grouped.has(day)) continue;
+        if (!grouped.has(day)) grouped.set(day, []);
+      }
+      if (!grouped.size) {
+        list.innerHTML = `<p>Không có việc nào.</p>`;
+        return;
+      }
+      for (const day of [...grouped.keys()].sort()) {
+        const card = document.createElement("article");
+        card.className = "day-card";
+        card.style.marginTop = "12px";
+        const title = document.createElement("h3");
+        title.textContent = `${WEEKDAYS[weekdayIndex(day)]}, ${formatDate(day)}${day === todayVN() ? " · hôm nay" : ""}`;
+        card.append(title);
+        for (const item of SESSIONS) {
+          const tasks = grouped.get(day).filter((task) => task.session === item.id);
+          const note = state.notes[`${day}:${item.id}`] || "";
+          if (!tasks.length && !note.trim()) continue;
+          if (session !== "all" && item.id !== session) continue;
+          const heading = document.createElement("p");
+          heading.innerHTML = `<strong>${item.label}</strong> · ${item.hours}`;
+          card.append(heading);
+          const area = document.createElement("textarea");
+          area.placeholder = "Ghi chú buổi";
+          area.value = note;
+          area.addEventListener("change", () => {
+            const noteKey = `${day}:${item.id}`;
+            if (area.value.trim()) state.notes[noteKey] = area.value.trim();
+            else delete state.notes[noteKey];
+            save();
+          });
+          card.append(area);
+          for (const task of tasks) card.append(taskNode(task));
+        }
+        list.append(card);
+      }
+    }
+
+    function renderOverview() {
+      const days = weekDays();
+      const weekTasks = state.tasks.filter((task) => days.includes(task.date));
+      const done = weekTasks.filter((task) => task.done);
+      const todo = weekTasks.filter((task) => !task.done);
+      const progress = weekTasks.length ? Math.round(100 * done.length / weekTasks.length) : 0;
+      document.getElementById("overview-metrics").innerHTML = [
+        ["Việc trong tuần", weekTasks.length],
+        ["Cần làm", todo.length],
+        ["Đã xong", done.length],
+        ["Hoàn thành", `${progress}%`],
+      ].map(([label, value]) => `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`).join("");
+      document.getElementById("overview-metrics").style.gridTemplateColumns = "repeat(4, 1fr)";
+      document.getElementById("bars").innerHTML = days.map((day) => {
+        const items = tasksFor(day);
+        const finished = items.filter((task) => task.done).length;
+        const open = items.length - finished;
+        const total = Math.max(items.length, 1);
+        return `<div class="bar-row"><span>${SHORT[weekdayIndex(day)]}</span><div class="bar"><i class="todo" style="width:${open / total * 100}%"></i><i class="done" style="width:${finished / total * 100}%"></i></div></div>`;
+      }).join("");
+      fillList("todo-list", "Cần làm", todo);
+      fillList("done-list", "Đã làm được", done);
+    }
+
+    function fillList(id, title, tasks) {
+      const box = document.getElementById(id);
+      box.innerHTML = `<h3>${title}</h3>`;
+      if (!tasks.length) {
+        const empty = document.createElement("p");
+        empty.textContent = title === "Cần làm" ? "Không còn việc chưa xong." : "Chưa có việc nào được đánh dấu xong.";
+        box.append(empty);
+        return;
+      }
+      for (const task of [...tasks].sort((a, b) => a.date.localeCompare(b.date) || a.session.localeCompare(b.session))) {
+        const line = document.createElement("p");
+        const session = sessionName(task.session);
+        line.textContent = `${SHORT[weekdayIndex(task.date)]} ${formatDate(task.date)} · ${session.label}: ${task.text}${task.note ? ` — ${task.note}` : ""}`;
+        box.append(line);
+      }
+    }
+
+    document.getElementById("view-week").addEventListener("click", () => setView("week"));
+    document.getElementById("view-tasks").addEventListener("click", () => setView("tasks"));
+    document.getElementById("view-overview").addEventListener("click", () => setView("overview"));
+    document.getElementById("prev-week").addEventListener("click", () => { monday = addDays(monday, -7); selected = monday; render(); });
+    document.getElementById("next-week").addEventListener("click", () => { monday = addDays(monday, 7); selected = monday; render(); });
+    document.getElementById("this-week").addEventListener("click", () => { monday = mondayOf(todayVN()); selected = todayVN(); render(); });
+    document.getElementById("jump-date").addEventListener("change", (event) => {
+      if (!event.target.value) return;
+      monday = mondayOf(event.target.value);
+      selected = event.target.value;
+      render();
+    });
+    document.getElementById("day-tabs").addEventListener("click", (event) => {
+      const day = event.target.dataset.day;
+      if (!day) return;
+      selected = day;
+      render();
+    });
+    for (const id of ["scope", "status", "session-filter", "query"]) {
+      document.getElementById(id).addEventListener("input", renderTasks);
+    }
+    document.getElementById("export").addEventListener("click", async () => {
+      const response = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks: state.tasks, notes: state.notes, week_start: monday }),
+      });
+      if (!response.ok) {
+        alert("Không xuất được Excel.");
+        return;
+      }
+      const blob = await response.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `quan-ly-thoi-gian_${todayVN()}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    });
+    setView("week");
+  </script>
+</body>
+</html>

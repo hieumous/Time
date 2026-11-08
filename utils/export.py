@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from io import BytesIO
 
-import pandas as pd
+from openpyxl import Workbook
 
 from utils.calendar import (
     SESSIONS,
@@ -12,7 +12,7 @@ from utils.calendar import (
     today_vn,
     weekday_full,
 )
-from utils.storage import Task, get_session_note, load_session_notes, parse_session_note_key
+from utils.storage import Task, load_session_notes, parse_session_note_key
 
 EXCEL_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
@@ -21,7 +21,17 @@ def excel_filename(prefix: str = "quan-ly-thoi-gian") -> str:
     return f"{prefix}_{today_vn().isoformat()}.xlsx"
 
 
-def _task_rows(tasks: list[Task]) -> list[dict[str, str]]:
+def _notes_map(notes: dict[str, str] | None) -> dict[str, str]:
+    if notes is None:
+        return load_session_notes()
+    return notes
+
+
+def _session_note(notes: dict[str, str], day: date, session_id: str) -> str:
+    return str(notes.get(f"{day.isoformat()}:{session_id}", ""))
+
+
+def _task_rows(tasks: list[Task], notes: dict[str, str]) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     for task in sorted(tasks, key=lambda item: (item.date, item.session, item.created_at)):
         day = date.fromisoformat(task.date)
@@ -35,7 +45,7 @@ def _task_rows(tasks: list[Task]) -> list[dict[str, str]]:
                 "Việc": task.text,
                 "Trạng thái": "Đã xong" if task.done else "Cần làm",
                 "Ghi chú việc": task.note,
-                "Ghi chú buổi": get_session_note(day, task.session),
+                "Ghi chú buổi": _session_note(notes, day, task.session),
                 "Tạo lúc": task.created_at,
                 "Xong lúc": task.done_at or "",
             }
@@ -43,8 +53,11 @@ def _task_rows(tasks: list[Task]) -> list[dict[str, str]]:
     return rows
 
 
-def _note_rows(tasks: list[Task], week_days: list[date] | None = None) -> list[dict[str, str]]:
-    notes = load_session_notes()
+def _note_rows(
+    tasks: list[Task],
+    notes: dict[str, str],
+    week_days: list[date] | None = None,
+) -> list[dict[str, str]]:
     if week_days is not None:
         allowed_days = {day.isoformat() for day in week_days}
     else:
@@ -70,7 +83,7 @@ def _note_rows(tasks: list[Task], week_days: list[date] | None = None) -> list[d
     return rows
 
 
-def _week_grid_rows(days: list[date], tasks: list[Task]) -> list[dict[str, str]]:
+def _week_grid_rows(days: list[date], tasks: list[Task], notes: dict[str, str]) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     for day in days:
         row: dict[str, str] = {
@@ -90,7 +103,7 @@ def _week_grid_rows(days: list[date], tasks: list[Task]) -> list[dict[str, str]]
                 if task.note:
                     line += f" — {task.note}"
                 lines.append(line)
-            session_note = get_session_note(day, session["id"])
+            session_note = _session_note(notes, day, session["id"])
             if session_note:
                 lines.append(f"Ghi chú: {session_note}")
             row[session["label"]] = "\n".join(lines)
@@ -98,14 +111,35 @@ def _week_grid_rows(days: list[date], tasks: list[Task]) -> list[dict[str, str]]
     return rows
 
 
+def _write_sheet(book: Workbook, title: str, rows: list[dict[str, str]], columns: list[str]) -> None:
+    sheet = book.create_sheet(title)
+    sheet.append(columns)
+    for row in rows:
+        sheet.append([row.get(column, "") for column in columns])
+    sheet.freeze_panes = "A2"
+    for column in sheet.columns:
+        width = 14
+        for cell in column:
+            if cell.value:
+                width = max(width, min(48, len(str(cell.value).split("\n", 1)[0]) + 2))
+        sheet.column_dimensions[column[0].column_letter].width = width
+
+
 def build_excel_bytes(
     tasks: list[Task],
     *,
     week_days: list[date] | None = None,
+    notes: dict[str, str] | None = None,
 ) -> bytes:
-    task_df = pd.DataFrame(
-        _task_rows(tasks),
-        columns=[
+    note_map = _notes_map(notes)
+    book = Workbook()
+    default_sheet = book.active
+    book.remove(default_sheet)
+    _write_sheet(
+        book,
+        "Việc",
+        _task_rows(tasks, note_map),
+        [
             "Ngày",
             "Thứ",
             "Buổi",
@@ -118,26 +152,19 @@ def build_excel_bytes(
             "Xong lúc",
         ],
     )
-    note_df = pd.DataFrame(
-        _note_rows(tasks, week_days),
-        columns=["Ngày", "Thứ", "Buổi", "Khung giờ", "Ghi chú buổi"],
+    _write_sheet(
+        book,
+        "Ghi chú buổi",
+        _note_rows(tasks, note_map, week_days),
+        ["Ngày", "Thứ", "Buổi", "Khung giờ", "Ghi chú buổi"],
     )
+    if week_days:
+        _write_sheet(
+            book,
+            "Lịch tuần",
+            _week_grid_rows(week_days, tasks, note_map),
+            ["Ngày", "Thứ", *(session["label"] for session in SESSIONS)],
+        )
     buffer = BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        task_df.to_excel(writer, index=False, sheet_name="Việc")
-        note_df.to_excel(writer, index=False, sheet_name="Ghi chú buổi")
-        if week_days:
-            grid_df = pd.DataFrame(
-                _week_grid_rows(week_days, tasks),
-                columns=["Ngày", "Thứ", *(session["label"] for session in SESSIONS)],
-            )
-            grid_df.to_excel(writer, index=False, sheet_name="Lịch tuần")
-        for sheet in writer.sheets.values():
-            sheet.freeze_panes = "A2"
-            for column in sheet.columns:
-                width = 14
-                for cell in column:
-                    if cell.value:
-                        width = max(width, min(48, len(str(cell.value).split("\n", 1)[0]) + 2))
-                sheet.column_dimensions[column[0].column_letter].width = width
+    book.save(buffer)
     return buffer.getvalue()

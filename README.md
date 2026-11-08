@@ -2,24 +2,20 @@
 
 Lịch tuần từ Thứ Hai đến Chủ Nhật. Mỗi ngày có buổi sáng, buổi chiều và buổi tối để ghi việc cần làm, việc đã xong và ghi chú.
 
-## Link gửi cho người khác
+## Deploy lên Vercel
 
 Repo: https://github.com/hieumous/Time
 
-App chạy trên web (mở được trên điện thoại, không cần cài Python):
+Vercel nhận file `app.py` (biến `app` của FastAPI) và `tool.vercel.entrypoint` trong `pyproject.toml`. Nối repo GitHub với Vercel, framework để Python, rồi bấm Deploy. Link gửi cho người khác là đường dẫn Vercel cấp, dạng `https://<tên-project>.vercel.app`.
 
-https://share.streamlit.io/deploy?repository=hieumous/Time&branch=main&mainModule=streamlit_app.py
-
-Mở link đó bằng tài khoản GitHub `hieumous`, bấm Deploy. Streamlit Community Cloud sẽ cấp một đường dẫn dạng `https://<tên-app>.streamlit.app`. Đó là link gửi cho người khác. Mỗi lần đẩy code lên nhánh `main`, app tự cập nhật.
+Việc và ghi chú được lưu trong trình duyệt của từng người, vì Vercel không giữ file `data/planner.json` giữa các lần mở trang.
 
 ## Chạy trên máy
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\streamlit.exe run streamlit_app.py
+.\.venv\Scripts\python.exe -m uvicorn app:app --reload
 ```
 
-Mở http://localhost:8501
-
-Dữ liệu cá nhân nằm ở `data/planner.json` và không được đưa lên GitHub.
+Mở http://127.0.0.1:8000

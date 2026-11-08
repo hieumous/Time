@@ -19,4 +19,4 @@ jobs:
       - name: Kiểm tra lịch tuần và file Excel
         run: |
           python -c "from datetime import date; from utils.calendar import monday_of, week_dates, weekday_full; sunday=date(2026,11,8); monday=monday_of(sunday); days=week_dates(monday); assert days[0]==date(2026,11,2) and days[-1]==sunday; assert weekday_full(sunday)=='Chủ Nhật'"
-          python -c "from utils.export import build_excel_bytes; data=build_excel_bytes([]); assert data[:2]==b'PK'"
+          python -c "from fastapi.testclient import TestClient; from app import app; client=TestClient(app); page=client.get('/'); assert page.status_code==200 and 'Lịch tuần' in page.text; exported=client.post('/api/export', json={'tasks':[{'date':'2026-11-08','session':'morning','text':'Họp','done':False,'note':'Ghi chú'}],'notes':{'2026-11-08:morning':'Buổi sáng'},'week_start':'2026-11-02'}); assert exported.status_code==200 and exported.content[:2]==b'PK'"
